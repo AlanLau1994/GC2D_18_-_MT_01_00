@@ -467,6 +467,16 @@ Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, f
 
 #pragma endregion
 
+#pragma region ///01-01
+
+Vector3 Cross(const Vector3& v1, const Vector3& v2);
+Vector3 rotate{};
+Vector3 translate{};
+
+
+
+#pragma endregion
+
 
 const char kWindowTitle[] = "GC2D_18_リュウ_チョウリン";
 
@@ -479,6 +489,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// キー入力結果を受け取る箱
 	char keys[256] = {0};
 	char preKeys[256] = {0};
+
+
 
 
 	// ウィンドウの×ボタンが押されるまでループ
@@ -502,9 +514,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
-		MatrixScreenPrintf(0, 0, orthographicMatrix, "orthographicMatrix");
-		MatrixScreenPrintf(0, kRowHeight * 5, perspectiveFovMatrix, "perspectiveFovMatrix");
-		MatrixScreenPrintf(0, kRowHeight * 10, viewportMatrix, "viewportMatrix");
+		
 
 		///
 		/// ↑描画処理ここまで
