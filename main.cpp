@@ -343,8 +343,6 @@ Matrix4x4 MakeRotateXMatrix(float radian)
 
 };
 
-
-
 Matrix4x4 MakeRotateYMatrix(float radian)
 {
 	float cosTheta = std::cos(radian);
@@ -354,6 +352,7 @@ Matrix4x4 MakeRotateYMatrix(float radian)
 			 sinTheta, 0.0f, cosTheta,  0.0f,
 			 0.0f,     0.0f, 0.0f,      1.0f };
 };
+
 Matrix4x4 MakeRotateZMatrix(float radian)
 {
 	float cosTheta = std::cos(radian);
@@ -438,10 +437,10 @@ Matrix4x4 MakeOrthographicMatrix(float l, float t, float r, float b, float zn, f
 	//zf =farClip
 	return
 	{
-		2/(r-l),0,0,0,
-		0,2/(t-b),0,0,
-		0,0,1/(zf-zn),0,
-		(l+r)/(l-r),(t+b)/(b-t),zn/(zn-zf),1
+		2 / (r - l),0,0,0,
+		0,2 / (t - b),0,0,
+		0,0,1 / (zf - zn),0,
+		(l + r) / (l - r),(t + b) / (b - t),zn / (zn - zf),1
 	};
 }
 Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip, float farClip)
@@ -451,7 +450,7 @@ Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip
 	return{ 1 / aspectRatio * cot,0,0,0,
 		0,cot,0,0,
 		0,0,farClip / (farClip - nearClip),1 ,
-	    0,0,(-nearClip* farClip) / (farClip - nearClip) ,0 };
+		0,0,(-nearClip * farClip) / (farClip - nearClip) ,0 };
 
 }
 
@@ -469,11 +468,11 @@ Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, f
 
 #pragma region ///01-01
 
-Vector3 Cross(const Vector3& v1, const Vector3& v2);
-Vector3 rotate{};
-Vector3 translate{};
+Vector3 Cross(const Vector3& v1, const Vector3& v2)
 
-
+{
+	return{ v1.y * v2.z - v1.z * v2.y,v1.z * v2.x - v1.x * v2.z,v1.x * v2.y - v1.y * v2.x };
+}
 
 #pragma endregion
 
@@ -483,15 +482,27 @@ const char kWindowTitle[] = "GC2D_18_リュウ_チョウリン";
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
+	int kWindowWidth = 1280;
+	int kWindowHeight = 720;
 	// ライブラリの初期化
-	Novice::Initialize(kWindowTitle, 1280, 720);
+	Novice::Initialize(kWindowTitle, kWindowWidth, kWindowHeight);
 
 	// キー入力結果を受け取る箱
-	char keys[256] = {0};
-	char preKeys[256] = {0};
+	char keys[256] = { 0 };
+	char preKeys[256] = { 0 };
 
+	Vector3 rotate{  };
+	Vector3 translate{  };
+	Vector3 kLocalVertices[3] = {
+		{-0.5f,-0.5f,0.0f},
+		{0.0f,0.5f,0.0f},
+		{0.5f,-0.5f,0.0f}
+	};
 
+	Vector3 v1{ 1.2f,-3.9f,2.5f };
+	Vector3 v2{ 2.8f,0.4f,-1.3f };
 
+	Vector3 cameraPosition{ 0.0f,0.0f,-5.0f };
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -505,7 +516,68 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↓更新処理ここから
 		///
-		
+		/// 
+		if (keys[DIK_W]) {
+			translate.z += 0.1f;
+		}
+		if (keys[DIK_S]) {
+			translate.z -= 0.1f;
+		}
+		if (keys[DIK_D]) {
+			translate.x += 0.1f;
+		}
+		if (keys[DIK_A]) {
+			translate.x -= 0.1f;
+		}
+
+
+		Vector3 cross = Cross(v1, v2);
+
+		rotate.y += 0.03f;
+
+		//ワールド変換行列を作る
+		Matrix4x4 worldMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, rotate, translate);
+
+		//ビュー変換行列を作るためにカメラポジションで行列作成
+		Matrix4x4 cameraMatrix =
+			MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, cameraPosition);
+
+		//↑のカメラ行列を反転してビュー座標系変換行列を作る
+		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+
+		//透視投影行列を作る
+		Matrix4x4 projectionMatrix =
+			MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
+
+		//ビュー変換行列と透視投影を掛けてワールド座標系→ビュー座標系→透視投影座標系への
+		//変換行列を作る
+		Matrix4x4 worldViewProjectionMatrix =
+			Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
+
+		// ViewportMatrixを作る
+		Matrix4x4 viewportMatrix =
+			MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
+
+		// 3角形ポリゴンの各頂点をScreen空間へ変換する
+		Vector3 screenVertices[3];
+		for (uint32_t i = 0; i < 3; ++i) {
+			// Transformを使うと同次座標系->デカルト座標系の処理が行われる
+			Vector3 ndcVertex = Transform(kLocalVertices[i], worldViewProjectionMatrix);
+
+			// Viewport座標系への変換を行ってScreen空間へ
+			screenVertices[i] = Transform(ndcVertex, viewportMatrix);
+		}
+
+
+		// 描画
+		Novice::DrawTriangle(
+			int(screenVertices[0].x), int(screenVertices[0].y), int(screenVertices[1].x),
+			int(screenVertices[1].y), int(screenVertices[2].x), int(screenVertices[2].y), RED,
+			kFillModeSolid);
+
+		VectorScreenPrintf(0, 0, cross, "Cross");
+
+
 		///
 		/// ↑更新処理ここまで
 		///
@@ -514,7 +586,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
-		
+
 
 		///
 		/// ↑描画処理ここまで
